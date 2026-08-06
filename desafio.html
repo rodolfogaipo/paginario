@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Desafio — Paginário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <a href="inicio.html" class="marca"><img src="logo-paginario.png"><span class="display">PAGIN<span>Á</span>RIO</span></a>
+  <div class="acoes-topo">
+    <span class="link-sair" id="linkSair">Sair</span>
+    <a href="estante.html" class="avatar-topo" id="avatarTopo">?</a>
+  </div>
+</header>
+
+<main>
+  <div class="titulo-secao">
+    <div>
+      <h3 class="display" style="font-size:20px;" id="nomeDesafio">Carregando…</h3>
+      <p id="subDesafio"></p>
+    </div>
+  </div>
+
+  <div class="podio" id="podio"></div>
+  <div class="lista-ranking" id="listaRanking"></div>
+
+  <div style="margin-top:26px;"><a href="clube.html" class="botao-texto">← voltar ao clube do livro</a></div>
+</main>
+
+<nav class="barra-nav-app">
+  <a href="inicio.html" class="item-nav-app"><span class="ic">🏠</span>Início</a>
+  <a href="estante.html" class="item-nav-app"><span class="ic">📚</span>Estante</a>
+  <a href="registrar.html" class="item-nav-app"><span class="ic">✚</span>Registrar</a>
+  <a href="clube.html" class="item-nav-app ativo"><span class="ic">🤝</span>Clube</a>
+  <a href="ranking.html" class="item-nav-app"><span class="ic">🏆</span>Ranking</a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('linkSair').addEventListener('click', sair);
+const idDesafio = new URLSearchParams(location.search).get('id');
+
+exigirLogin(async user=>{
+  const perfil = await buscarPerfilUsuario(user.uid);
+  document.getElementById('avatarTopo').innerHTML = perfil.fotoBase64 ? `<img src="${perfil.fotoBase64}">` : iniciais(perfil.nome);
+
+  if(!idDesafio){ location.href='clube.html'; return; }
+  const d = await buscarDesafio(idDesafio);
+  if(!d || !d.participantes.includes(user.uid)){ location.href='clube.html'; return; }
+
+  const dias = diasRestantes(d.dataFim);
+  document.getElementById('nomeDesafio').textContent = d.nome;
+  document.getElementById('subDesafio').textContent = dias===null ? 'Desafio sem prazo' : `Faltam ${dias} dias`;
+
+  const ranking = Object.entries(d.progresso||{}).map(([uid,paginas])=>({uid, paginas, info:d.participantesInfo?.[uid]||{}}))
+    .sort((a,b)=> b.paginas - a.paginas);
+
+  const maiorValor = Math.max(1, ranking[0]?.paginas||0);
+
+  const podio = document.getElementById('podio');
+  const top3 = ranking.slice(0,3);
+  const posicoes = ['p2','p1','p3'];
+  const ordemExibicao = [top3[1], top3[0], top3[2]];
+  podio.innerHTML = ordemExibicao.map((r,i)=>{
+    if(!r) return `<div></div>`;
+    const medalha = ['2º','1º','3º'][i];
+    const classe = ['p2','p1','p3'][i];
+    return `<div class="pod ${classe}"><div class="medalha">${medalha}</div><div class="nome-pod">${escapeHtml(r.info.nome||'—')}</div><div class="pag-pod">${formatarNumero(r.paginas)} pág.</div></div>`;
+  }).join('');
+
+  const lista = document.getElementById('listaRanking');
+  lista.innerHTML = ranking.slice(3).map((r,i)=>`
+    <div class="linha-rank">
+      <div class="pos">${i+4}</div>
+      <div class="info">
+        <div class="nome">${escapeHtml(r.info.nome||'—')}</div>
+        <div class="barra-bg"><div class="barra" style="width:${Math.round((r.paginas/maiorValor)*100)}%"></div></div>
+      </div>
+      <div class="pag">${formatarNumero(r.paginas)}<small>páginas</small></div>
+    </div>`).join('');
+
+  if(ranking.length===0) podio.innerHTML = `<div class="vazio" style="grid-column:1/-1"><div class="display" style="font-size:15px;">Ninguém registrou leitura ainda</div></div>`;
+});
+</script>
+</body>
+</html>

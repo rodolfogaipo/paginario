@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registrar leitura — Paginário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <a href="inicio.html" class="marca"><img src="logo-paginario.png"><span class="display">PAGIN<span>Á</span>RIO</span></a>
+  <div class="acoes-topo">
+    <span class="link-sair" id="linkSair">Sair</span>
+    <a href="estante.html" class="avatar-topo" id="avatarTopo">?</a>
+  </div>
+</header>
+
+<main>
+  <div class="titulo-secao">
+    <div><h3 class="display" style="font-size:20px;">Registrar leitura</h3><p>O check-in de hoje conta pra sequência, meta e ranking</p></div>
+  </div>
+
+  <div id="blocoCheckin"></div>
+
+  <div class="titulo-secao" style="margin-top:30px;">
+    <div><h3 class="display" style="font-size:16px;">Livros em andamento</h3></div>
+  </div>
+  <div class="lista-andamento" id="listaAndamento"><p style="color:var(--texto-suave); font-size:13px;">Carregando…</p></div>
+
+  <div class="titulo-secao" style="margin-top:10px;">
+    <div><h3 class="display" style="font-size:16px;">Começar um livro novo</h3><p>Só o essencial — o resto você preenche ao terminar</p></div>
+  </div>
+  <div class="cartao" style="margin-bottom:20px;">
+    <form id="formComecar">
+      <div class="campo">
+        <label>Capa do livro</label>
+        <label class="upload-capa" id="uploadCapaComecar">
+          <span id="iconeCapaComecar">📷 Opcional — pode adicionar depois</span>
+          <input type="file" id="capaComecar" accept="image/*">
+        </label>
+      </div>
+      <div class="campo"><label>Título</label><input type="text" id="tituloComecar" required></div>
+      <div class="campo"><label>Autor</label><input type="text" id="autorComecar" required></div>
+      <div class="campo-dupla">
+        <div class="campo"><label>Editora</label><input type="text" id="editoraComecar"></div>
+        <div class="campo"><label>Edição</label><input type="text" id="edicaoComecar"></div>
+      </div>
+      <div class="campo"><label>Total de páginas</label><input type="number" id="paginasComecar" min="1" required></div>
+      <button type="submit" class="botao" id="botaoComecar">Começar leitura</button>
+      <div id="erroComecar" class="erro" style="display:none"></div>
+      <div id="okComecar" class="aviso-ok" style="display:none">Livro adicionado! Já pode registrar sua leitura dele.</div>
+    </form>
+  </div>
+</main>
+
+<nav class="barra-nav-app">
+  <a href="inicio.html" class="item-nav-app"><span class="ic">🏠</span>Início</a>
+  <a href="estante.html" class="item-nav-app"><span class="ic">📚</span>Estante</a>
+  <a href="registrar.html" class="item-nav-app"><span class="ic">✚</span>Registrar</a>
+  <a href="clube.html" class="item-nav-app"><span class="ic">🤝</span>Clube</a>
+  <a href="ranking.html" class="item-nav-app"><span class="ic">🏆</span>Ranking</a>
+</nav>
+
+<div class="veu" id="veuModal" style="display:none"><div class="modal-livro" id="conteudoModal"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('linkSair').addEventListener('click', sair);
+
+let usuarioAtual = null;
+let perfilAtual = null;
+let livrosAndamento = [];
+let livroSelecionadoId = null;
+
+exigirLogin(async user=>{
+  usuarioAtual = user;
+  perfilAtual = await buscarPerfilUsuario(user.uid);
+  document.getElementById('avatarTopo').innerHTML = perfilAtual.fotoBase64 ? `<img src="${perfilAtual.fotoBase64}">` : iniciais(perfilAtual.nome);
+  await carregarAndamento();
+});
+
+async function carregarAndamento(){
+  livrosAndamento = await buscarLivrosAndamento(usuarioAtual.uid);
+  if(!livroSelecionadoId && livrosAndamento.length) livroSelecionadoId = livrosAndamento[0].id;
+  renderizarCheckin();
+  renderizarLista();
+}
+
+function renderizarCheckin(){
+  const bloco = document.getElementById('blocoCheckin');
+  if(livrosAndamento.length===0){
+    bloco.innerHTML = `<div class="vazio"><div class="display" style="font-size:15px;">Nenhum livro em andamento</div>Comece um livro novo aqui embaixo pra poder registrar sua leitura.</div>`;
+    return;
+  }
+  const livro = livrosAndamento.find(l=>l.id===livroSelecionadoId) || livrosAndamento[0];
+  bloco.innerHTML = `
+    <div class="cartao">
+      <h3 class="display" style="font-size:15px; margin-bottom:14px;">Quanto você leu hoje?</h3>
+      <div class="selecao-livro" id="selecaoLivro">
+        ${livrosAndamento.map(l=>`
+          <div class="chip-livro ${l.id===livro.id?'selecionado':''}" data-id="${l.id}">
+            <div class="icone-livro">${l.capaBase64?`<img src="${l.capaBase64}">`:'📖'}</div>
+            <div class="txt-chip"><div class="nm">${escapeHtml(l.titulo)}</div><div class="pg">${formatarNumero(l.paginasLidas)}/${formatarNumero(l.paginasTotal)} pág.</div></div>
+          </div>`).join('')}
+      </div>
+      <div class="input-paginas-hoje">
+        <input type="number" id="paginasHoje" min="1" value="10">
+        <div class="rot-input">páginas lidas hoje em <b style="color:var(--perola)">${escapeHtml(livro.titulo)}</b><br>vai de ${formatarNumero(livro.paginasLidas)} para <b style="color:var(--dourado)" id="previewNovoTotal">${formatarNumero(Math.min(livro.paginasLidas+10, livro.paginasTotal))}</b> de ${formatarNumero(livro.paginasTotal)}</div>
+      </div>
+      <button class="botao dourado" id="botaoCheckin">Registrar 🔥</button>
+      <div id="erroCheckin" class="erro" style="display:none"></div>
+      <div id="okCheckin" class="aviso-ok" style="display:none"></div>
+    </div>`;
+
+  document.querySelectorAll('#selecaoLivro .chip-livro').forEach(chip=>{
+    chip.addEventListener('click', ()=>{ livroSelecionadoId = chip.dataset.id; renderizarCheckin(); });
+  });
+
+  const inputPag = document.getElementById('paginasHoje');
+  inputPag.addEventListener('input', ()=>{
+    const v = parseInt(inputPag.value,10)||0;
+    document.getElementById('previewNovoTotal').textContent = formatarNumero(Math.min(livro.paginasLidas+v, livro.paginasTotal));
+  });
+
+  document.getElementById('botaoCheckin').addEventListener('click', async ()=>{
+    const btn = document.getElementById('botaoCheckin');
+    const erroBox = document.getElementById('erroCheckin');
+    const okBox = document.getElementById('okCheckin');
+    erroBox.style.display='none'; okBox.style.display='none';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try{
+      const paginas = parseInt(inputPag.value,10)||0;
+      const resultado = await adicionarCheckin(usuarioAtual.uid, perfilAtual.nome, livro, paginas);
+      okBox.textContent = `Boa! +${paginas} páginas registradas. Sequência: ${resultado.novaSequencia} dias 🔥`;
+      okBox.style.display = 'block';
+      await carregarAndamento();
+    } catch(err){
+      erroBox.textContent = err.message || 'Não foi possível registrar. Tente novamente.';
+      erroBox.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Registrar 🔥';
+    }
+  });
+}
+
+function renderizarLista(){
+  const lista = document.getElementById('listaAndamento');
+  if(livrosAndamento.length===0){
+    lista.innerHTML = `<div class="vazio"><div class="display" style="font-size:14px;">Nada em andamento</div></div>`;
+    return;
+  }
+  lista.innerHTML = livrosAndamento.map(l=>{
+    const percent = l.paginasTotal ? Math.min(100, Math.round((l.paginasLidas/l.paginasTotal)*100)) : 0;
+    return `
+    <div class="item-andamento">
+      <div class="capa-mini-atual">${l.capaBase64?`<img src="${l.capaBase64}">`:'📖'}</div>
+      <div class="info-atual">
+        <div class="titulo-atual">${escapeHtml(l.titulo)}</div>
+        <div class="barra-progresso-bg"><div class="barra-progresso" style="width:${percent}%"></div></div>
+        <div class="sub-atual">${formatarNumero(l.paginasLidas)} <span>/ ${formatarNumero(l.paginasTotal)} pág.</span></div>
+      </div>
+      <button class="botao-mini" data-selecionar="${l.id}">+ hoje</button>
+      <button class="botao-mini" data-editar="${l.id}" title="Editar">✎</button>
+      <button class="botao-mini finalizar" data-finalizar="${l.id}">Finalizar ✓</button>
+    </div>`;
+  }).join('');
+
+  lista.querySelectorAll('[data-selecionar]').forEach(b=> b.addEventListener('click', ()=>{
+    livroSelecionadoId = b.dataset.selecionar;
+    renderizarCheckin();
+    document.getElementById('blocoCheckin').scrollIntoView({behavior:'smooth'});
+  }));
+  lista.querySelectorAll('[data-finalizar]').forEach(b=> b.addEventListener('click', ()=>{
+    abrirModalFinalizar(livrosAndamento.find(l=>l.id===b.dataset.finalizar));
+  }));
+  lista.querySelectorAll('[data-editar]').forEach(b=> b.addEventListener('click', ()=>{
+    abrirModalEditarAndamento(livrosAndamento.find(l=>l.id===b.dataset.editar));
+  }));
+}
+
+function abrirModalEditarAndamento(livro){
+  const veu = document.getElementById('veuModal');
+  let novaCapaBase64 = null;
+  document.getElementById('conteudoModal').innerHTML = `
+    <div class="modal-corpo">
+      <button class="fechar" id="fecharModal">&times;</button>
+      <h2 class="display" style="font-size:19px; margin-bottom:16px;">Editar livro</h2>
+
+      <div class="campo">
+        <label>Capa</label>
+        <label class="upload-capa" id="uploadCapaEditarAnd">
+          ${livro.capaBase64?`<img src="${livro.capaBase64}">`:'<span>📷 Adicionar capa</span>'}
+          <input type="file" id="capaEditarAnd" accept="image/*">
+        </label>
+      </div>
+      <div class="campo"><label>Título</label><input type="text" id="tituloEditarAnd" value="${escapeHtml(livro.titulo)}"></div>
+      <div class="campo"><label>Autor</label><input type="text" id="autorEditarAnd" value="${escapeHtml(livro.autor)}"></div>
+      <div class="campo-dupla">
+        <div class="campo"><label>Editora</label><input type="text" id="editoraEditarAnd" value="${escapeHtml(livro.editora||'')}"></div>
+        <div class="campo"><label>Edição</label><input type="text" id="edicaoEditarAnd" value="${escapeHtml(livro.edicao||'')}"></div>
+      </div>
+      <div class="campo"><label>Total de páginas</label><input type="number" id="paginasEditarAnd" value="${livro.paginasTotal||0}"></div>
+      <div class="campo"><label>Personagem principal</label><input type="text" id="personagemEditarAnd" value="${escapeHtml(livro.personagemPrincipal||'')}"></div>
+      <div class="campo"><label>Resumo</label><textarea id="resumoEditarAnd">${escapeHtml(livro.resumo||'')}</textarea></div>
+      <div class="campo"><label>Citação preferida</label><textarea id="citacaoEditarAnd">${escapeHtml(livro.citacaoPreferida||'')}</textarea></div>
+
+      <button class="botao dourado" id="botaoSalvarEdicaoAnd">Salvar alterações</button>
+      <button class="botao" id="botaoExcluirAnd" style="margin-top:10px; background:rgba(225,91,91,0.18); color:#f0a3a3; box-shadow:none;">🗑 Excluir livro</button>
+      <div id="erroEditarAnd" class="erro" style="display:none"></div>
+    </div>`;
+  veu.style.display = 'flex';
+  document.getElementById('fecharModal').addEventListener('click', ()=> veu.style.display='none');
+
+  document.getElementById('capaEditarAnd').addEventListener('change', async e=>{
+    const arquivo = e.target.files[0];
+    if(!arquivo) return;
+    novaCapaBase64 = await comprimirImagem(arquivo, 420, 0.72);
+  });
+
+  document.getElementById('botaoSalvarEdicaoAnd').addEventListener('click', async ()=>{
+    const btn = document.getElementById('botaoSalvarEdicaoAnd');
+    const erroBox = document.getElementById('erroEditarAnd');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try{
+      await editarLivro(livro.id, {
+        titulo: document.getElementById('tituloEditarAnd').value.trim(),
+        autor: document.getElementById('autorEditarAnd').value.trim(),
+        editora: document.getElementById('editoraEditarAnd').value.trim(),
+        edicao: document.getElementById('edicaoEditarAnd').value.trim(),
+        paginasTotal: document.getElementById('paginasEditarAnd').value,
+        personagemPrincipal: document.getElementById('personagemEditarAnd').value.trim(),
+        resumo: document.getElementById('resumoEditarAnd').value.trim(),
+        citacaoPreferida: document.getElementById('citacaoEditarAnd').value.trim(),
+        capaBase64: novaCapaBase64
+      });
+      veu.style.display = 'none';
+      await carregarAndamento();
+    } catch(err){
+      erroBox.textContent = 'Não foi possível salvar. Tente novamente.';
+      erroBox.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Salvar alterações';
+    }
+  });
+
+  document.getElementById('botaoExcluirAnd').addEventListener('click', async ()=>{
+    if(!confirm(`Remover "${livro.titulo}"? Isso também tira as páginas já lidas dele do seu total.`)) return;
+    await removerLivro(livro, usuarioAtual.uid);
+    veu.style.display = 'none';
+    if(livroSelecionadoId === livro.id) livroSelecionadoId = null;
+    await carregarAndamento();
+  });
+}
+
+function abrirModalFinalizar(livro){
+  const veu = document.getElementById('veuModal');
+  document.getElementById('conteudoModal').innerHTML = `
+    <div class="modal-corpo">
+      <button class="fechar" id="fecharModal">&times;</button>
+      <h2 class="display" style="font-size:19px;">Finalizar "${escapeHtml(livro.titulo)}"</h2>
+      <div style="color:var(--texto-suave); font-size:13px; margin-top:2px; margin-bottom:18px;">${formatarNumero(livro.paginasLidas)} / ${formatarNumero(livro.paginasTotal)} pág. lidas até agora</div>
+
+      <div class="campo">
+        <label>Capa do livro</label>
+        <label class="upload-capa" id="uploadCapaFinalizar">
+          ${livro.capaBase64?`<img src="${livro.capaBase64}"><span style="position:relative;">Trocar capa</span>`:'<span>📷 Adicionar capa</span>'}
+          <input type="file" id="capaFinalizar" accept="image/*">
+        </label>
+      </div>
+      <div class="campo"><label>Personagem principal</label><input type="text" id="personagemFinalizar"></div>
+      <div class="campo"><label>Resumo do livro</label><textarea id="resumoFinalizar"></textarea></div>
+      <div class="campo"><label>Citação preferida</label><textarea id="citacaoFinalizar"></textarea></div>
+      <button class="botao dourado" id="botaoFinalizar">Concluir e enviar pro ranking 🎉</button>
+      <div id="erroFinalizar" class="erro" style="display:none"></div>
+    </div>`;
+  veu.style.display = 'flex';
+  document.getElementById('fecharModal').addEventListener('click', ()=> veu.style.display='none');
+  veu.addEventListener('click', e=>{ if(e.target===veu) veu.style.display='none'; });
+
+  let novaCapaBase64 = null;
+  document.getElementById('capaFinalizar').addEventListener('change', async e=>{
+    const arquivo = e.target.files[0];
+    if(!arquivo) return;
+    novaCapaBase64 = await comprimirImagem(arquivo, 420, 0.72);
+  });
+
+  document.getElementById('botaoFinalizar').addEventListener('click', async ()=>{
+    const btn = document.getElementById('botaoFinalizar');
+    const erroBox = document.getElementById('erroFinalizar');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    try{
+      await finalizarLivro(livro, usuarioAtual.uid, perfilAtual.nome, {
+        personagemPrincipal: document.getElementById('personagemFinalizar').value.trim(),
+        resumo: document.getElementById('resumoFinalizar').value.trim(),
+        citacaoPreferida: document.getElementById('citacaoFinalizar').value.trim(),
+        capaBase64: novaCapaBase64
+      });
+      veu.style.display = 'none';
+      if(livroSelecionadoId === livro.id) livroSelecionadoId = null;
+      await carregarAndamento();
+    } catch(err){
+      erroBox.textContent = 'Não foi possível finalizar. Tente novamente.';
+      erroBox.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Concluir e enviar pro ranking 🎉';
+    }
+  });
+}
+
+/* começar livro novo */
+let capaComecarBase64 = null;
+document.getElementById('capaComecar').addEventListener('change', async e=>{
+  const arquivo = e.target.files[0];
+  if(!arquivo) return;
+  capaComecarBase64 = await comprimirImagem(arquivo, 420, 0.72);
+  document.getElementById('iconeCapaComecar').innerHTML = `<img src="${capaComecarBase64}" style="max-height:80px; border-radius:8px;">`;
+});
+
+document.getElementById('formComecar').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const btn = document.getElementById('botaoComecar');
+  const erroBox = document.getElementById('erroComecar');
+  const okBox = document.getElementById('okComecar');
+  erroBox.style.display='none'; okBox.style.display='none';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try{
+    await comecarLivro(usuarioAtual.uid, {
+      titulo: document.getElementById('tituloComecar').value.trim(),
+      autor: document.getElementById('autorComecar').value.trim(),
+      editora: document.getElementById('editoraComecar').value.trim(),
+      edicao: document.getElementById('edicaoComecar').value.trim(),
+      paginasTotal: document.getElementById('paginasComecar').value,
+      capaBase64: capaComecarBase64
+    });
+    okBox.style.display = 'block';
+    e.target.reset();
+    capaComecarBase64 = null;
+    document.getElementById('iconeCapaComecar').innerHTML = '📷 Opcional — pode adicionar depois';
+    await carregarAndamento();
+  } catch(err){
+    erroBox.textContent = 'Não foi possível começar o livro. Tente novamente.';
+    erroBox.style.display = 'block';
+  } finally{
+    btn.disabled = false; btn.textContent = 'Começar leitura';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfil — Paginário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <a href="inicio.html" class="marca"><img src="logo-paginario.png"><span class="display">PAGIN<span>Á</span>RIO</span></a>
+  <div class="acoes-topo">
+    <span class="link-sair" id="linkSair">Sair</span>
+    <a href="estante.html" class="avatar-topo" id="avatarTopo">?</a>
+  </div>
+</header>
+
+<main>
+  <div class="cabecalho-perfil">
+    <div class="avatar-grande" id="avatarPerfil">?</div>
+    <div>
+      <h2 class="display" id="nomeUsuario" style="font-size:21px;">Carregando…</h2>
+      <div class="stats-perfil">
+        <div class="pill dourado">Total lido <b id="totalPaginas">0</b> pág.</div>
+        <div class="pill">Livros <b id="totalLivros">0</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="titulo-secao"><div><h3 class="display" style="font-size:17px;">Estante</h3></div></div>
+  <div class="grade-livros" id="grade"><p style="color:var(--texto-suave); font-size:13px;">Carregando…</p></div>
+</main>
+
+<nav class="barra-nav-app">
+  <a href="inicio.html" class="item-nav-app"><span class="ic">🏠</span>Início</a>
+  <a href="estante.html" class="item-nav-app"><span class="ic">📚</span>Estante</a>
+  <a href="registrar.html" class="item-nav-app"><span class="ic">✚</span>Registrar</a>
+  <a href="clube.html" class="item-nav-app"><span class="ic">🤝</span>Clube</a>
+  <a href="ranking.html" class="item-nav-app ativo"><span class="ic">🏆</span>Ranking</a>
+</nav>
+
+<div class="veu" id="veuModal" style="display:none"><div class="modal-livro" id="conteudoModal"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('linkSair').addEventListener('click', sair);
+const uidAlvo = new URLSearchParams(location.search).get('uid');
+
+exigirLogin(async user=>{
+  const meuPerfil = await buscarPerfilUsuario(user.uid);
+  document.getElementById('avatarTopo').innerHTML = meuPerfil.fotoBase64 ? `<img src="${meuPerfil.fotoBase64}">` : iniciais(meuPerfil.nome);
+
+  if(!uidAlvo){ location.href='ranking.html'; return; }
+  const perfil = await buscarPerfilUsuario(uidAlvo);
+  if(!perfil){ location.href='ranking.html'; return; }
+
+  document.getElementById('nomeUsuario').textContent = perfil.nome;
+  document.getElementById('totalPaginas').textContent = formatarNumero(perfil.totalPaginas);
+  document.getElementById('totalLivros').textContent = perfil.livrosConcluidos || 0;
+  document.getElementById('avatarPerfil').innerHTML = perfil.fotoBase64 ? `<img src="${perfil.fotoBase64}">` : iniciais(perfil.nome);
+
+  const livros = await buscarLivrosConcluidos(uidAlvo);
+  const grade = document.getElementById('grade');
+  if(livros.length===0){
+    grade.innerHTML = `<div class="vazio" style="grid-column:1/-1"><div class="display" style="font-size:15px;">Estante ainda vazia</div></div>`;
+    return;
+  }
+  grade.innerHTML = livros.map(l=>`
+    <div class="capa-livro" data-id="${l.id}">
+      ${l.capaBase64?`<img src="${l.capaBase64}">`:`<div class="titulo-mini">${escapeHtml(l.titulo)}</div>`}
+      <span class="badge-pag">${formatarNumero(l.paginasTotal)} pág.</span>
+    </div>`).join('');
+  grade.querySelectorAll('.capa-livro').forEach(el=>{
+    el.addEventListener('click', ()=> abrirModal(livros.find(l=>l.id===el.dataset.id)));
+  });
+});
+
+function abrirModal(livro){
+  const veu = document.getElementById('veuModal');
+  document.getElementById('conteudoModal').innerHTML = `
+    ${livro.capaBase64?`<img class="capa-modal" src="${livro.capaBase64}">`:''}
+    <div class="modal-corpo">
+      <button class="fechar" id="fecharModal">&times;</button>
+      <h2 class="display" style="font-size:20px;">${escapeHtml(livro.titulo)}</h2>
+      <div style="color:var(--texto-suave); font-size:13.5px; margin-top:2px;">${escapeHtml(livro.autor)}</div>
+      ${livro.resumo?`<p style="margin-top:14px; font-size:14px; line-height:1.6; color:var(--perola);">${escapeHtml(livro.resumo)}</p>`:''}
+      ${livro.citacaoPreferida?`<div class="citacao">"${escapeHtml(livro.citacaoPreferida)}"</div>`:''}
+      <div class="ficha-tecnica">
+        <div>Editora: <b>${escapeHtml(livro.editora)||'—'}</b></div>
+        <div>Edição: <b>${escapeHtml(livro.edicao)||'—'}</b></div>
+        <div>Páginas: <b>${formatarNumero(livro.paginasTotal)}</b></div>
+        <div>Personagem: <b>${escapeHtml(livro.personagemPrincipal)||'—'}</b></div>
+      </div>
+    </div>`;
+  veu.style.display = 'flex';
+  document.getElementById('fecharModal').addEventListener('click', ()=> veu.style.display='none');
+  veu.addEventListener('click', e=>{ if(e.target===veu) veu.style.display='none'; });
+}
+</script>
+</body>
+</html>

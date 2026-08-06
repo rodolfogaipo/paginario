@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Início — Paginário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <a href="inicio.html" class="marca"><img src="logo-paginario.png"><span class="display">PAGIN<span>Á</span>RIO</span></a>
+  <div class="acoes-topo">
+    <span class="link-sair" id="linkSair">Sair</span>
+    <a href="estante.html" class="avatar-topo" id="avatarTopo">?</a>
+  </div>
+</header>
+
+<main>
+  <div class="saudacao">
+    <div>
+      <h2 class="display" id="textoSaudacao">Olá</h2>
+      <p>Vamos virar mais uma página hoje?</p>
+    </div>
+    <div class="chama-sequencia">🔥 <span id="valorSequencia">0</span> <span id="rotuloSequencia">dias</span></div>
+  </div>
+
+  <div class="card-meta">
+    <div class="anel-progresso" id="anelProgresso"><div class="miolo"><b id="percentMeta">0%</b><span>da meta</span></div></div>
+    <div class="txt-meta">
+      <p id="rotuloMeta">Meta de <span id="nomeMesMeta">mês</span> <span class="selo-auto" id="seloAuto">sugerida</span></p>
+      <h4><span id="paginasMesAtual">0</span> <span style="color:var(--texto-suave); font-weight:500;">/ <span id="metaMensalTxt">0</span> pág.</span></h4>
+      <div class="mini-barra" id="fraseMeta">carregando…</div>
+    </div>
+    <button class="botao-icone" id="botaoEditarMeta" title="Ajustar meta">✎</button>
+  </div>
+
+  <a href="registrar.html" class="acao-rapida">✚ Registrar leitura de hoje</a>
+
+  <div id="blocoLivroAtual"></div>
+
+  <div class="linha-cards-mini">
+    <div class="card-mini"><div class="rot-mini">Ranking geral</div><div class="val-mini" id="statPosicao">—</div></div>
+    <div class="card-mini"><div class="rot-mini">Livros lidos</div><div class="val-mini" id="statLivros">0</div></div>
+    <div class="card-mini"><div class="rot-mini">Sequência</div><div class="val-mini"><span id="statSequencia">0</span> <small>dias</small></div></div>
+  </div>
+
+  <div id="blocoDesafio"></div>
+
+  <div class="titulo-mini-secao">Atividade do clube</div>
+  <div id="listaAtividade"><p style="color:var(--texto-suave); font-size:13px;">Carregando…</p></div>
+</main>
+
+<nav class="barra-nav-app">
+  <a href="inicio.html" class="item-nav-app"><span class="ic">🏠</span>Início</a>
+  <a href="estante.html" class="item-nav-app"><span class="ic">📚</span>Estante</a>
+  <a href="registrar.html" class="item-nav-app"><span class="ic">✚</span>Registrar</a>
+  <a href="clube.html" class="item-nav-app"><span class="ic">🤝</span>Clube</a>
+  <a href="ranking.html" class="item-nav-app"><span class="ic">🏆</span>Ranking</a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('linkSair').addEventListener('click', sair);
+
+let usuarioAtual = null;
+let perfilAtual = null;
+
+exigirLogin(async user=>{
+  usuarioAtual = user;
+  let perfil = await buscarPerfilUsuario(user.uid);
+  perfil = await verificarViradaDeMes(user.uid, perfil);
+  perfilAtual = perfil;
+
+  document.getElementById('avatarTopo').innerHTML = perfil.fotoBase64
+    ? `<img src="${perfil.fotoBase64}">` : iniciais(perfil.nome);
+
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  document.getElementById('textoSaudacao').textContent = `${saudacao}, ${(perfil.nome||'').split(' ')[0]}`;
+
+  document.getElementById('valorSequencia').textContent = perfil.sequenciaAtual || 0;
+  document.getElementById('rotuloSequencia').textContent = (perfil.sequenciaAtual===1) ? 'dia' : 'dias';
+
+  renderizarMeta(perfil);
+  renderizarLivroAtual();
+  renderizarStats(perfil);
+  renderizarDesafio();
+  renderizarAtividade();
+});
+
+function renderizarMeta(perfil){
+  const meta = perfil.metaMensal || 1;
+  const lidas = perfil.paginasMesAtual || 0;
+  const percent = Math.min(100, Math.round((lidas/meta)*100));
+  document.getElementById('anelProgresso').style.background = `conic-gradient(var(--dourado) 0% ${percent}%, rgba(255,255,255,0.1) ${percent}% 100%)`;
+  document.getElementById('percentMeta').textContent = percent+'%';
+  document.getElementById('nomeMesMeta').textContent = nomeMesAtual();
+  document.getElementById('seloAuto').style.display = perfil.metaManual ? 'none' : 'inline-block';
+  document.getElementById('paginasMesAtual').textContent = formatarNumero(lidas);
+  document.getElementById('metaMensalTxt').textContent = formatarNumero(meta);
+  const faltam = Math.max(0, meta-lidas);
+  document.getElementById('fraseMeta').textContent = faltam>0 ? `faltam ${formatarNumero(faltam)} pág. até o fim do mês` : 'meta batida! 🎉';
+}
+
+document.getElementById('botaoEditarMeta').addEventListener('click', async ()=>{
+  const novaMeta = prompt('Nova meta de páginas para este mês:', perfilAtual.metaMensal);
+  if(novaMeta === null) return;
+  const valor = parseInt(novaMeta,10);
+  if(!valor || valor<=0){ alert('Digite um número válido.'); return; }
+  await definirMetaManual(usuarioAtual.uid, valor);
+  perfilAtual.metaMensal = valor;
+  perfilAtual.metaManual = true;
+  renderizarMeta(perfilAtual);
+});
+
+async function renderizarLivroAtual(){
+  const livros = await buscarLivrosAndamento(usuarioAtual.uid);
+  const bloco = document.getElementById('blocoLivroAtual');
+  if(livros.length===0){ bloco.innerHTML=''; return; }
+  const l = livros[0];
+  const percent = l.paginasTotal ? Math.min(100, Math.round((l.paginasLidas/l.paginasTotal)*100)) : 0;
+  bloco.innerHTML = `
+    <a href="registrar.html" class="card-livro-atual">
+      <div class="capa-mini-atual">${l.capaBase64?`<img src="${l.capaBase64}">`:'📖'}</div>
+      <div class="info-atual">
+        <div class="titulo-atual">${escapeHtml(l.titulo)}</div>
+        <div class="barra-progresso-bg"><div class="barra-progresso" style="width:${percent}%"></div></div>
+        <div class="sub-atual">${formatarNumero(l.paginasLidas)} <span>/ ${formatarNumero(l.paginasTotal)} pág. · ${percent}%</span></div>
+      </div>
+    </a>`;
+}
+
+async function renderizarStats(perfil){
+  document.getElementById('statLivros').textContent = perfil.livrosConcluidos || 0;
+  document.getElementById('statSequencia').textContent = perfil.sequenciaAtual || 0;
+  const ranking = await buscarRanking();
+  const pos = ranking.findIndex(u=>u.id===usuarioAtual.uid);
+  document.getElementById('statPosicao').innerHTML = pos>=0 ? `${pos+1}º` : '—';
+}
+
+async function renderizarDesafio(){
+  const desafios = await buscarMeusDesafios(usuarioAtual.uid);
+  const bloco = document.getElementById('blocoDesafio');
+  if(desafios.length===0){ bloco.innerHTML=''; return; }
+  const d = desafios[0];
+  const ranking = Object.entries(d.progresso||{}).sort((a,b)=>b[1]-a[1]);
+  const pos = ranking.findIndex(([uid])=>uid===usuarioAtual.uid);
+  const dias = diasRestantes(d.dataFim);
+  bloco.innerHTML = `
+    <a href="desafio.html?id=${d.id}" class="card-desafio-mini">
+      <div><div class="nome-des">🏆 ${escapeHtml(d.nome)}</div><div class="sub-des">${dias===null?'sem prazo':`faltam ${dias} dias`}</div></div>
+      <div class="pos-des"><b>${pos>=0?pos+1+'º':'—'}</b><div class="sub-des">de ${d.participantes.length}</div></div>
+    </a>`;
+}
+
+async function renderizarAtividade(){
+  const atividades = await buscarAtividadesRecentes(10);
+  const lista = document.getElementById('listaAtividade');
+  if(atividades.length===0){
+    lista.innerHTML = `<div class="vazio"><div class="display" style="font-size:14px;">Nenhuma atividade ainda</div>Registre sua primeira leitura!</div>`;
+    return;
+  }
+  lista.innerHTML = atividades.map(a=>`
+    <div class="item-atividade">
+      <div class="mini-avatar">${escapeHtml((a.nomeUsuario||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>
+      <div class="txt-ativ">${textoAtividade(a)}</div>
+      ${a.tipo==='checkin'?`<div class="selo-pag">+${formatarNumero(a.paginas)}</div>`:''}
+    </div>`).join('');
+}
+</script>
+</body>
+</html>

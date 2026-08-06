@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paginário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="hero-login">
+  <div style="width:100%; max-width:400px;">
+    <div class="logo-central">
+      <img src="logo-paginario.png" alt="Paginário">
+      <h1 class="display">PAGIN<span>Á</span>RIO</h1>
+      <p>Leia. Registre. Compare. Vença.</p>
+    </div>
+
+    <div class="cartao-login">
+      <h2 class="display" id="tituloForm">Entrar</h2>
+      <div class="sub" id="subForm">Ainda não tem conta? <span class="troca-modo-link" id="botaoTrocar">Cadastre-se</span></div>
+
+      <form id="formAuth">
+
+        <div id="blocoCadastro" style="display:none">
+          <div class="linha-avatar">
+            <label class="upload-avatar" id="uploadAvatar" style="margin:0;">
+              <span id="iconeAvatar">📷</span>
+              <input type="file" id="foto" accept="image/*">
+            </label>
+            <div class="txt">Foto de perfil — opcional, se não enviar usamos suas iniciais.</div>
+          </div>
+
+          <div class="campo">
+            <label for="nome">Seu nome</label>
+            <input type="text" id="nome" autocomplete="name">
+          </div>
+          <div class="campo">
+            <label for="username">Nome de usuário</label>
+            <input type="text" id="username" placeholder="rodolfogaipo" autocomplete="off">
+            <div class="dica-campo" id="dicaUsername">Único no Paginário — é por ele que outras pessoas vão te convidar pra desafios.</div>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" autocomplete="email" required>
+        </div>
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <input type="password" id="senha" autocomplete="current-password" required minlength="6">
+        </div>
+
+        <div id="blocoMeta" style="display:none" class="campo">
+          <label>Quanto você costuma ler por mês?</label>
+          <div class="pills-opcoes" id="pillsMeta">
+            <button type="button" class="pill-opcao" data-valor="300">~300 pág.</button>
+            <button type="button" class="pill-opcao selecionada" data-valor="800">~800 pág.</button>
+            <button type="button" class="pill-opcao" data-valor="1500">~1.500 pág.</button>
+            <button type="button" class="pill-opcao" data-valor="3000">3.000+ pág.</button>
+          </div>
+          <div class="dica-campo">Só pra começar sua meta mensal no lugar certo — o app ajusta sozinho depois.</div>
+        </div>
+
+        <button type="submit" class="botao dourado" style="margin-top:8px;" id="botaoEnviar">Entrar</button>
+        <div id="erro" class="erro" style="display:none"></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+<script>
+seJaLogadoRedirecionar('inicio.html');
+
+let modoCadastro = false;
+let metaSelecionada = 800;
+let fotoBase64Selecionada = null;
+
+const form = document.getElementById('formAuth');
+const blocoCadastro = document.getElementById('blocoCadastro');
+const blocoMeta = document.getElementById('blocoMeta');
+const titulo = document.getElementById('tituloForm');
+const subForm = document.getElementById('subForm');
+const botaoEnviar = document.getElementById('botaoEnviar');
+const botaoTrocar = document.getElementById('botaoTrocar');
+const erroBox = document.getElementById('erro');
+
+botaoTrocar.addEventListener('click', ()=>{
+  modoCadastro = !modoCadastro;
+  blocoCadastro.style.display = modoCadastro ? 'block' : 'none';
+  blocoMeta.style.display = modoCadastro ? 'block' : 'none';
+  document.getElementById('nome').required = modoCadastro;
+  document.getElementById('username').required = modoCadastro;
+  titulo.textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  botaoEnviar.textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  subForm.innerHTML = modoCadastro
+    ? 'Já tem conta? <span class="troca-modo-link" id="botaoTrocar2">Fazer login</span>'
+    : 'Ainda não tem conta? <span class="troca-modo-link" id="botaoTrocar2">Cadastre-se</span>';
+  document.getElementById('botaoTrocar2').addEventListener('click', ()=> botaoTrocar.click());
+  erroBox.style.display = 'none';
+});
+
+document.getElementById('pillsMeta').addEventListener('click', e=>{
+  const alvo = e.target.closest('.pill-opcao');
+  if(!alvo) return;
+  document.querySelectorAll('#pillsMeta .pill-opcao').forEach(p=>p.classList.remove('selecionada'));
+  alvo.classList.add('selecionada');
+  metaSelecionada = parseInt(alvo.dataset.valor, 10);
+});
+
+document.getElementById('foto').addEventListener('change', async e=>{
+  const arquivo = e.target.files[0];
+  if(!arquivo) return;
+  fotoBase64Selecionada = await comprimirImagem(arquivo, 220, 0.75);
+  document.getElementById('uploadAvatar').innerHTML = `<img src="${fotoBase64Selecionada}"><input type="file" id="foto" accept="image/*" style="display:none">`;
+});
+
+const mensagensErro = {
+  'auth/invalid-email': 'E-mail inválido.',
+  'auth/user-not-found': 'Não encontramos essa conta.',
+  'auth/wrong-password': 'Senha incorreta.',
+  'auth/invalid-credential': 'E-mail ou senha incorretos.',
+  'auth/email-already-in-use': 'Já existe uma conta com esse e-mail.',
+  'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
+  'custom/username-em-uso': 'Esse nome de usuário já está em uso. Tente outro.',
+  'custom/username-invalido': 'Use só letras, números e underline (3 a 20 caracteres).'
+};
+
+form.addEventListener('submit', async e=>{
+  e.preventDefault();
+  erroBox.style.display = 'none';
+  const email = document.getElementById('email').value.trim();
+  const senha = document.getElementById('senha').value;
+
+  botaoEnviar.disabled = true;
+  botaoEnviar.innerHTML = '<span class="spinner"></span>';
+
+  try{
+    if(modoCadastro){
+      const nome = document.getElementById('nome').value.trim();
+      const username = document.getElementById('username').value.trim();
+      await criarConta(nome, username, email, senha, fotoBase64Selecionada, metaSelecionada);
+    } else {
+      await auth.signInWithEmailAndPassword(email, senha);
+    }
+    location.href = 'inicio.html';
+  } catch(err){
+    erroBox.textContent = mensagensErro[err.code] || 'Algo deu errado. Tente novamente.';
+    erroBox.style.display = 'block';
+    botaoEnviar.disabled = false;
+    botaoEnviar.textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  }
+});
+</script>
+</body>
+</html>

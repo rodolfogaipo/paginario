@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clube do livro — Paginário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <a href="inicio.html" class="marca"><img src="logo-paginario.png"><span class="display">PAGIN<span>Á</span>RIO</span></a>
+  <div class="acoes-topo">
+    <span class="link-sair" id="linkSair">Sair</span>
+    <a href="estante.html" class="avatar-topo" id="avatarTopo">?</a>
+  </div>
+</header>
+
+<main>
+  <div class="titulo-secao">
+    <div><h3 class="display" style="font-size:20px;">Clube do livro</h3><p>Desafios só com quem você convidar</p></div>
+  </div>
+
+  <div class="grade-desafios" id="listaDesafios"><p style="color:var(--texto-suave); font-size:13px;">Carregando…</p></div>
+
+  <div class="cartao">
+    <h3 class="display" style="font-size:16px; margin-bottom:18px;">Criar novo desafio</h3>
+    <form id="formDesafio">
+      <div class="campo"><label>Nome do desafio</label><input type="text" id="nomeDesafio" required></div>
+
+      <div class="campo">
+        <label>Convidar participantes</label>
+        <div class="campo-usuarios" id="campoUsuarios">
+          <input type="text" id="inputUsuario" placeholder="@nomedeusuario">
+        </div>
+        <div id="erroUsuario" class="erro" style="display:none"></div>
+      </div>
+
+      <div class="campo">
+        <label>Duração do desafio</label>
+        <div class="pills-opcoes" id="pillsDuracao">
+          <button type="button" class="pill-opcao" data-meses="1">1 mês</button>
+          <button type="button" class="pill-opcao selecionada" data-meses="3">3 meses</button>
+          <button type="button" class="pill-opcao" data-meses="6">6 meses</button>
+          <button type="button" class="pill-opcao" data-meses="12">12 meses</button>
+          <button type="button" class="pill-opcao" data-meses="0">Indefinido</button>
+        </div>
+      </div>
+
+      <div class="nota-regra"><b>Importante:</b> só contam os livros postados a partir da criação do desafio.</div>
+
+      <button type="submit" class="botao dourado" style="margin-top:20px;" id="botaoCriarDesafio">Criar desafio</button>
+      <div id="erroDesafio" class="erro" style="display:none"></div>
+    </form>
+  </div>
+</main>
+
+<nav class="barra-nav-app">
+  <a href="inicio.html" class="item-nav-app"><span class="ic">🏠</span>Início</a>
+  <a href="estante.html" class="item-nav-app"><span class="ic">📚</span>Estante</a>
+  <a href="registrar.html" class="item-nav-app"><span class="ic">✚</span>Registrar</a>
+  <a href="clube.html" class="item-nav-app"><span class="ic">🤝</span>Clube</a>
+  <a href="ranking.html" class="item-nav-app"><span class="ic">🏆</span>Ranking</a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('linkSair').addEventListener('click', sair);
+
+let usuarioAtual = null;
+let perfilAtual = null;
+let convidados = []; // {uid, nome, username, fotoBase64}
+let duracaoSelecionada = 3;
+
+exigirLogin(async user=>{
+  usuarioAtual = user;
+  perfilAtual = await buscarPerfilUsuario(user.uid);
+  document.getElementById('avatarTopo').innerHTML = perfilAtual.fotoBase64 ? `<img src="${perfilAtual.fotoBase64}">` : iniciais(perfilAtual.nome);
+  carregarDesafios();
+});
+
+async function carregarDesafios(){
+  const desafios = await buscarMeusDesafios(usuarioAtual.uid);
+  const lista = document.getElementById('listaDesafios');
+  if(desafios.length===0){
+    lista.innerHTML = `<div class="vazio"><div class="display" style="font-size:15px;">Nenhum desafio ainda</div>Crie um abaixo e convide alguém pelo @usuário.</div>`;
+    return;
+  }
+  lista.innerHTML = desafios.map(d=>{
+    const ranking = Object.entries(d.progresso||{}).sort((a,b)=>b[1]-a[1]);
+    const dias = diasRestantes(d.dataFim);
+    const liderUid = ranking[0]?.[0];
+    const liderNome = d.participantesInfo?.[liderUid]?.nome || '—';
+    return `
+    <a href="desafio.html?id=${d.id}" class="card-desafio">
+      <div class="card-desafio-topo">
+        <h4>${escapeHtml(d.nome)}</h4>
+        <span class="tag-duracao ${dias===null?'indefinido':''}">${dias===null?'sem prazo':`faltam ${dias} dias`}</span>
+      </div>
+      <div class="avatares-empilhados">
+        ${d.participantes.map(uid=>{
+          const info = d.participantesInfo?.[uid];
+          return info?.fotoBase64 ? `<div class="mini-avatar"><img src="${info.fotoBase64}"></div>` : `<div class="mini-avatar">${iniciais(info?.nome)}</div>`;
+        }).join('')}
+      </div>
+      <div class="lider-desafio">Na frente: <b>${escapeHtml(liderNome)}</b> · ${formatarNumero(ranking[0]?.[1]||0)} pág.</div>
+    </a>`;
+  }).join('');
+}
+
+/* convidar por @usuário */
+const inputUsuario = document.getElementById('inputUsuario');
+const campoUsuarios = document.getElementById('campoUsuarios');
+const erroUsuario = document.getElementById('erroUsuario');
+
+inputUsuario.addEventListener('keydown', async e=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const valor = inputUsuario.value.trim().replace(/^@/,'');
+  if(!valor) return;
+  erroUsuario.style.display = 'none';
+  inputUsuario.disabled = true;
+  try{
+    if(valor.toLowerCase() === perfilAtual.username){ throw new Error('Você já está no desafio automaticamente.'); }
+    if(convidados.some(c=>c.username===valor.toLowerCase())){ throw new Error('Essa pessoa já foi convidada.'); }
+    const encontrado = await buscarUsuarioPorUsername(valor);
+    if(!encontrado){ throw new Error(`Não achamos @${valor}. Confira o nome de usuário.`); }
+    convidados.push({ uid:encontrado.id, nome:encontrado.nome, username:encontrado.username, fotoBase64:encontrado.fotoBase64||null });
+    renderizarChipsUsuarios();
+    inputUsuario.value = '';
+  } catch(err){
+    erroUsuario.textContent = err.message;
+    erroUsuario.style.display = 'block';
+  } finally{
+    inputUsuario.disabled = false;
+    inputUsuario.focus();
+  }
+});
+
+function renderizarChipsUsuarios(){
+  campoUsuarios.querySelectorAll('.chip-usuario').forEach(c=>c.remove());
+  convidados.forEach(c=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip-usuario';
+    chip.innerHTML = `${c.fotoBase64?`<div class="mini-avatar" style="width:20px;height:20px;font-size:9px;"><img src="${c.fotoBase64}"></div>`:`<div class="mini-avatar" style="width:20px;height:20px;font-size:9px;">${iniciais(c.nome)}</div>`}@${c.username} <span class="remover" data-username="${c.username}">✕</span>`;
+    campoUsuarios.insertBefore(chip, inputUsuario);
+  });
+  campoUsuarios.querySelectorAll('.remover').forEach(r=>{
+    r.addEventListener('click', ()=>{
+      convidados = convidados.filter(c=>c.username!==r.dataset.username);
+      renderizarChipsUsuarios();
+    });
+  });
+}
+
+document.getElementById('pillsDuracao').addEventListener('click', e=>{
+  const alvo = e.target.closest('.pill-opcao');
+  if(!alvo) return;
+  document.querySelectorAll('#pillsDuracao .pill-opcao').forEach(p=>p.classList.remove('selecionada'));
+  alvo.classList.add('selecionada');
+  duracaoSelecionada = parseInt(alvo.dataset.meses,10);
+});
+
+document.getElementById('formDesafio').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const btn = document.getElementById('botaoCriarDesafio');
+  const erroBox = document.getElementById('erroDesafio');
+  erroBox.style.display = 'none';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try{
+    const criadorInfo = { nome:perfilAtual.nome, username:perfilAtual.username, fotoBase64:perfilAtual.fotoBase64||null };
+    await criarDesafio(usuarioAtual.uid, criadorInfo, document.getElementById('nomeDesafio').value.trim(), convidados, duracaoSelecionada || null);
+    convidados = [];
+    renderizarChipsUsuarios();
+    e.target.reset();
+    duracaoSelecionada = 3;
+    document.querySelectorAll('#pillsDuracao .pill-opcao').forEach(p=>p.classList.remove('selecionada'));
+    document.querySelector('#pillsDuracao .pill-opcao[data-meses="3"]').classList.add('selecionada');
+    await carregarDesafios();
+  } catch(err){
+    erroBox.textContent = 'Não foi possível criar o desafio. Tente novamente.';
+    erroBox.style.display = 'block';
+  } finally{
+    btn.disabled = false; btn.textContent = 'Criar desafio';
+  }
+});
+</script>
+</body>
+</html>
