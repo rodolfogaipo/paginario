@@ -36,46 +36,46 @@ O Firebase é quem guarda os cadastros, os livros, as leituras e os desafios. Va
 {
   "rules": {
     "usuarios": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "auth != null",
         ".write": "auth != null && auth.uid == $uid"
       }
     },
     "usernames": {
+      ".read": true,
       "$username": {
-        ".read": "auth != null",
         ".write": "auth != null && (!data.exists() || data.val() == auth.uid)"
       }
     },
     "livros": {
+      ".read": "auth != null",
       ".indexOn": ["uid"],
       "$livroId": {
-        ".read": "auth != null",
-        ".write": "auth != null && (!data.exists() || data.child('uid').val() == auth.uid) && newData.child('uid').val() == auth.uid"
+        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() == auth.uid) || (data.exists() && data.child('uid').val() == auth.uid))"
       }
     },
     "atividades": {
+      ".read": "auth != null",
       ".indexOn": ["criadoEm"],
       "$id": {
-        ".read": "auth != null",
         ".write": "auth != null"
       }
     },
     "historicoMeses": {
+      ".read": "auth != null",
       "$id": {
-        ".read": "auth != null",
         ".write": "auth != null"
       }
     },
     "desafios": {
+      ".read": "auth != null",
       "$id": {
-        ".read": "auth != null",
         ".write": "auth != null"
       }
     },
     "desafiosPorUsuario": {
       "$uid": {
-        ".read": "auth != null",
+        ".read": "auth != null && auth.uid == $uid",
         ".write": "auth != null"
       }
     }
