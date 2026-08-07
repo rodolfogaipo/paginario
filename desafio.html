@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#12081F">
 <link rel="icon" href="icons/favicon-32.png">
@@ -28,6 +28,8 @@
       <p id="subDesafio"></p>
     </div>
   </div>
+
+  <div id="acoesDesafio"></div>
 
   <div class="podio" id="podio"></div>
   <div class="lista-ranking" id="listaRanking"></div>
@@ -58,7 +60,8 @@ exigirLogin(async user=>{
 
   if(!idDesafio){ location.href='clube.html'; return; }
   const d = await buscarDesafio(idDesafio);
-  if(!d || !d.participantes.includes(user.uid)){ location.href='clube.html'; return; }
+  const jaDispensou = d?.dispensadoPor && d.dispensadoPor[user.uid];
+  if(!d || !d.participantes.includes(user.uid) || jaDispensou){ location.href='clube.html'; return; }
 
   const dias = diasRestantes(d.dataFim);
   document.getElementById('nomeDesafio').textContent = d.nome;
@@ -92,7 +95,163 @@ exigirLogin(async user=>{
     </div>`).join('');
 
   if(ranking.length===0) podio.innerHTML = `<div class="vazio" style="grid-column:1/-1"><div class="display" style="font-size:15px;">Ninguém registrou leitura ainda</div></div>`;
+
+  const encerrado = !!(d.dataFim && d.dataFim <= Date.now());
+  const souCriador = d.criadoPor === user.uid;
+  const ninguemParticipou = Object.values(d.progresso||{}).every(v => (v||0) === 0);
+  const acoesBox = document.getElementById('acoesDesafio');
+
+  if(encerrado){
+    acoesBox.innerHTML = `
+      <div class="cartao" style="margin-bottom:24px; text-align:center;">
+        <div style="font-size:34px;">🏆</div>
+        <h3 class="display" style="font-size:18px; margin:8px 0 6px;">Esse desafio já terminou!</h3>
+        <p style="color:var(--texto-suave); font-size:13.5px; margin-bottom:18px;">Gere a imagem do resultado pra mandar pro grupo. Isso só sai da SUA lista — as outras pessoas ainda vão ver esse aviso até verem também.</p>
+        <button class="botao dourado" id="botaoCompartilharEncerrar" style="margin-bottom:10px;">🎉 Gerar imagem e compartilhar</button>
+        <button class="botao-texto" id="botaoDispensar" style="color:var(--texto-suave);">Já vi, dispensar sem compartilhar</button>
+      </div>`;
+    document.getElementById('botaoCompartilharEncerrar').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      try{
+        await compartilharEEncerrar(d, ranking, user.uid);
+      } catch(err){
+        btn.disabled = false; btn.textContent = '🎉 Gerar imagem e compartilhar';
+        alert('Não foi possível gerar a imagem. Tente novamente.');
+      }
+    });
+    document.getElementById('botaoDispensar').addEventListener('click', async ()=>{
+      if(!confirm('Dispensar sem compartilhar? Esse aviso vai sumir só da sua lista.')) return;
+      await dispensarDesafioEncerrado(d, user.uid);
+      location.href = 'clube.html';
+    });
+  } else if(souCriador && ninguemParticipou){
+    acoesBox.innerHTML = `<button class="botao-texto" id="botaoExcluirDesafio" style="color:#f0a3a3; margin-bottom:20px;">🗑 Excluir desafio (ninguém participou ainda)</button>`;
+    document.getElementById('botaoExcluirDesafio').addEventListener('click', async ()=>{
+      if(!confirm(`Excluir o desafio "${d.nome}"? Essa ação não pode ser desfeita.`)) return;
+      await excluirDesafio(d);
+      location.href = 'clube.html';
+    });
+  }
 });
+
+/* ---------- imagem compartilhável de encerramento ---------- */
+function quebrarTexto(ctx, texto, x, y, larguraMax, alturaLinha){
+  const palavras = texto.split(' ');
+  let linha = '';
+  const linhas = [];
+  palavras.forEach(p=>{
+    const teste = linha + p + ' ';
+    if(ctx.measureText(teste).width > larguraMax && linha !== ''){
+      linhas.push(linha);
+      linha = p + ' ';
+    } else linha = teste;
+  });
+  linhas.push(linha);
+  const inicioY = y - (linhas.length-1)*alturaLinha/2;
+  linhas.forEach((l,i)=> ctx.fillText(l.trim(), x, inicioY + i*alturaLinha));
+}
+
+function gerarImagemDesafio(d, ranking){
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080; canvas.height = 1350;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0,0,1080,1350);
+  grad.addColorStop(0, '#1D0F35');
+  grad.addColorStop(1, '#12081F');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,1080,1350);
+
+  const brilho = ctx.createRadialGradient(860,140,50,860,140,520);
+  brilho.addColorStop(0,'rgba(244,197,80,0.22)');
+  brilho.addColorStop(1,'rgba(244,197,80,0)');
+  ctx.fillStyle = brilho;
+  ctx.fillRect(0,0,1080,1350);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#F4C550';
+  ctx.font = '700 30px sans-serif';
+  ctx.fillText('PAGINÁRIO · CLUBE DO LIVRO', 540, 110);
+
+  ctx.font = '110px sans-serif';
+  ctx.fillText('🏆', 540, 270);
+
+  ctx.fillStyle = '#B8A0F5';
+  ctx.font = '700 24px sans-serif';
+  ctx.fillText('DESAFIO ENCERRADO', 540, 330);
+
+  ctx.fillStyle = '#F5F2FB';
+  ctx.font = '700 50px sans-serif';
+  quebrarTexto(ctx, d.nome, 540, 410, 880, 58);
+
+  const vencedor = ranking[0];
+  ctx.fillStyle = '#B8A0F5';
+  ctx.font = '700 24px sans-serif';
+  ctx.fillText('VENCEDOR(A)', 540, 540);
+
+  ctx.fillStyle = '#F4C550';
+  ctx.font = '700 62px sans-serif';
+  ctx.fillText(vencedor?.info?.nome || '—', 540, 615);
+
+  ctx.fillStyle = '#F5F2FB';
+  ctx.font = '600 30px monospace';
+  ctx.fillText(`${formatarNumero(vencedor?.paginas||0)} páginas lidas`, 540, 665);
+
+  ctx.strokeStyle = 'rgba(184,160,245,0.25)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(140,730); ctx.lineTo(940,730); ctx.stroke();
+
+  let y = 800;
+  ranking.slice(0,7).forEach((r,i)=>{
+    ctx.textAlign = 'left';
+    ctx.fillStyle = i===0 ? '#F4C550' : '#B7ACD6';
+    ctx.font = '700 28px sans-serif';
+    ctx.fillText(`${i+1}º`, 150, y);
+
+    ctx.fillStyle = '#F5F2FB';
+    ctx.font = '600 30px sans-serif';
+    ctx.fillText(r.info?.nome || '—', 220, y);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#B8A0F5';
+    ctx.font = '600 26px monospace';
+    ctx.fillText(`${formatarNumero(r.paginas||0)} pág.`, 930, y);
+
+    y += 66;
+  });
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#B7ACD6';
+  ctx.font = '500 22px sans-serif';
+  ctx.fillText('Leia. Registre. Compare. Vença. — Paginário', 540, 1300);
+
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
+async function compartilharEEncerrar(d, ranking, uid){
+  const blob = await gerarImagemDesafio(d, ranking);
+  const arquivo = new File([blob], 'desafio-paginario.png', { type:'image/png' });
+
+  if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
+    try{
+      await navigator.share({ files:[arquivo], title:'Resultado do desafio', text:`Resultado do desafio "${d.nome}" no Paginário!` });
+    } catch(err){
+      if(err.name === 'AbortError') return; // cancelou o compartilhamento, mantém o card pra essa pessoa
+    }
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'desafio-paginario.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  await dispensarDesafioEncerrado(d, uid);
+  alert('Prontinho! A imagem foi baixada/compartilhada, e esse desafio já saiu da sua lista.');
+  location.href = 'clube.html';
+}
+
 </script>
 </body>
 </html>

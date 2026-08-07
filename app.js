@@ -140,6 +140,17 @@ async function buscarUsuarioPorUsername(username){
   return buscarPerfilUsuario(snap.val());
 }
 
+/* Busca usuários cujo @username começa com o prefixo digitado (autocomplete) */
+async function buscarUsuariosPorPrefixo(prefixo, limite=6){
+  const lower = prefixo.toLowerCase().replace(/^@/,'').trim();
+  if(!lower) return [];
+  const snap = await db.ref('usernames').orderByKey().startAt(lower).endAt(lower+'\uf8ff').limitToFirst(limite).once('value');
+  const encontrados = [];
+  snap.forEach(child=> encontrados.push({ username: child.key, uid: child.val() }));
+  const perfis = await Promise.all(encontrados.map(e=> buscarPerfilUsuario(e.uid)));
+  return perfis.filter(Boolean);
+}
+
 function atualizarFotoPerfil(uid, fotoBase64){
   return db.ref('usuarios/'+uid+'/fotoBase64').set(fotoBase64);
 }
@@ -347,7 +358,6 @@ function buscarDesafio(id){
 
 async function criarDesafio(criadorUid, criadorInfo, nomeDesafio, convidados, duracaoMeses){
   const participantesUids = [criadorUid, ...convidados.map(c=>c.uid)];
-  const participantes = {}; participantesUids.forEach(u=> participantes[u]=true);
   const participantesInfo = { [criadorUid]: criadorInfo };
   convidados.forEach(c=> participantesInfo[c.uid] = { nome:c.nome, username:c.username, fotoBase64:c.fotoBase64||null });
   const progresso = {}; participantesUids.forEach(u=> progresso[u]=0);
@@ -365,7 +375,7 @@ async function criarDesafio(criadorUid, criadorInfo, nomeDesafio, convidados, du
   const atualizacoes = {};
   atualizacoes['desafios/'+idDesafio] = {
     nome: nomeDesafio, criadoPor: criadorUid,
-    participantes, participantesInfo, progresso,
+    participantes: participantesUids, participantesInfo, progresso,
     duracaoMeses: duracaoMeses || null,
     dataInicio: firebase.database.ServerValue.TIMESTAMP,
     dataFim
@@ -380,6 +390,30 @@ async function criarDesafio(criadorUid, criadorInfo, nomeDesafio, convidados, du
   });
   await db.ref().update(atualizacoes);
   return idDesafio;
+}
+
+/* Remove um desafio (e a referência dele na lista de cada participante) */
+async function excluirDesafio(desafio){
+  const atualizacoes = { ['desafios/'+desafio.id]: null };
+  (desafio.participantes||[]).forEach(uid=>{
+    atualizacoes['desafiosPorUsuario/'+uid+'/'+desafio.id] = null;
+  });
+  await db.ref().update(atualizacoes);
+}
+
+/* Dispensa o card de "desafio encerrado" só pra essa pessoa (compartilhando ou ignorando).
+   Quando todo mundo já tiver dispensado, o desafio é removido de vez. */
+async function dispensarDesafioEncerrado(desafio, uid){
+  const atualizacoes = {};
+  atualizacoes['desafios/'+desafio.id+'/dispensadoPor/'+uid] = true;
+  atualizacoes['desafiosPorUsuario/'+uid+'/'+desafio.id] = null;
+  await db.ref().update(atualizacoes);
+
+  const dispensadoPor = { ...(desafio.dispensadoPor||{}), [uid]: true };
+  const todosViram = (desafio.participantes||[]).every(p => dispensadoPor[p]);
+  if(todosViram){
+    await db.ref('desafios/'+desafio.id).remove();
+  }
 }
 
 function diasRestantes(dataFim){

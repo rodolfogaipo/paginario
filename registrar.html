@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#12081F">
 <link rel="icon" href="icons/favicon-32.png">
@@ -160,6 +160,7 @@ function renderizarLista(){
   }
   lista.innerHTML = livrosAndamento.map(l=>{
     const percent = l.paginasTotal ? Math.min(100, Math.round((l.paginasLidas/l.paginasTotal)*100)) : 0;
+    const podeFinalizar = l.paginasTotal > 0 && l.paginasLidas >= l.paginasTotal;
     return `
     <div class="item-andamento">
       <div class="capa-mini-atual">${l.capaBase64?`<img src="${l.capaBase64}">`:'📖'}</div>
@@ -170,7 +171,7 @@ function renderizarLista(){
       </div>
       <button class="botao-mini" data-selecionar="${l.id}">+ hoje</button>
       <button class="botao-mini" data-editar="${l.id}" title="Editar">✎</button>
-      <button class="botao-mini finalizar" data-finalizar="${l.id}">Finalizar ✓</button>
+      <button class="botao-mini finalizar" data-finalizar="${l.id}" ${podeFinalizar ? '' : 'disabled title="Registre todas as páginas antes de finalizar"'}>Finalizar ✓</button>
     </div>`;
   }).join('');
 
@@ -179,7 +180,7 @@ function renderizarLista(){
     renderizarCheckin();
     document.getElementById('blocoCheckin').scrollIntoView({behavior:'smooth'});
   }));
-  lista.querySelectorAll('[data-finalizar]').forEach(b=> b.addEventListener('click', ()=>{
+  lista.querySelectorAll('[data-finalizar]:not([disabled])').forEach(b=> b.addEventListener('click', ()=>{
     abrirModalFinalizar(livrosAndamento.find(l=>l.id===b.dataset.finalizar));
   }));
   lista.querySelectorAll('[data-editar]').forEach(b=> b.addEventListener('click', ()=>{

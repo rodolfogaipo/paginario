@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#12081F">
 <link rel="icon" href="icons/favicon-32.png">
@@ -35,8 +35,11 @@
 
       <div class="campo">
         <label>Convidar participantes</label>
-        <div class="campo-usuarios" id="campoUsuarios">
-          <input type="text" id="inputUsuario" placeholder="@nomedeusuario">
+        <div style="position:relative;">
+          <div class="campo-usuarios" id="campoUsuarios">
+            <input type="text" id="inputUsuario" placeholder="@nomedeusuario" autocomplete="off">
+          </div>
+          <div class="sugestoes-usuario" id="sugestoesUsuario" style="display:none;"></div>
         </div>
         <div id="erroUsuario" class="erro" style="display:none"></div>
       </div>
@@ -117,33 +120,57 @@ async function carregarDesafios(){
   }).join('');
 }
 
-/* convidar por @usuário */
+/* convidar por @usuário — sugestões ao vivo, estilo Instagram */
 const inputUsuario = document.getElementById('inputUsuario');
 const campoUsuarios = document.getElementById('campoUsuarios');
 const erroUsuario = document.getElementById('erroUsuario');
+const boxSugestoes = document.getElementById('sugestoesUsuario');
 
-inputUsuario.addEventListener('keydown', async e=>{
-  if(e.key !== 'Enter') return;
-  e.preventDefault();
-  const valor = inputUsuario.value.trim().replace(/^@/,'');
-  if(!valor) return;
+let timeoutBusca = null;
+inputUsuario.addEventListener('input', ()=>{
   erroUsuario.style.display = 'none';
-  inputUsuario.disabled = true;
-  try{
-    if(valor.toLowerCase() === perfilAtual.username){ throw new Error('Você já está no desafio automaticamente.'); }
-    if(convidados.some(c=>c.username===valor.toLowerCase())){ throw new Error('Essa pessoa já foi convidada.'); }
-    const encontrado = await buscarUsuarioPorUsername(valor);
-    if(!encontrado){ throw new Error(`Não achamos @${valor}. Confira o nome de usuário.`); }
-    convidados.push({ uid:encontrado.id, nome:encontrado.nome, username:encontrado.username, fotoBase64:encontrado.fotoBase64||null });
-    renderizarChipsUsuarios();
-    inputUsuario.value = '';
-  } catch(err){
-    erroUsuario.textContent = err.message;
-    erroUsuario.style.display = 'block';
-  } finally{
-    inputUsuario.disabled = false;
-    inputUsuario.focus();
-  }
+  clearTimeout(timeoutBusca);
+  const termo = inputUsuario.value.trim().replace(/^@/,'');
+  if(termo.length < 2){ esconderSugestoes(); return; }
+  timeoutBusca = setTimeout(async ()=>{
+    const resultados = await buscarUsuariosPorPrefixo(termo, 6);
+    const filtrados = resultados.filter(u =>
+      u.username !== perfilAtual.username &&
+      !convidados.some(c => c.username === u.username)
+    );
+    renderizarSugestoes(filtrados);
+  }, 250);
+});
+
+function renderizarSugestoes(lista){
+  if(lista.length === 0){ esconderSugestoes(); return; }
+  boxSugestoes.innerHTML = lista.map(u => `
+    <div class="item-sugestao" data-uid="${u.id}">
+      ${u.fotoBase64
+        ? `<div class="mini-avatar" style="width:26px;height:26px;font-size:10px;"><img src="${u.fotoBase64}"></div>`
+        : `<div class="mini-avatar" style="width:26px;height:26px;font-size:10px;">${iniciais(u.nome)}</div>`}
+      <div><div style="font-weight:700; font-size:13px;">${escapeHtml(u.nome)}</div><div style="font-size:11px; color:var(--texto-suave);">@${escapeHtml(u.username)}</div></div>
+    </div>`).join('');
+  boxSugestoes.style.display = 'block';
+  boxSugestoes.querySelectorAll('.item-sugestao').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const u = lista.find(x => x.id === item.dataset.uid);
+      convidados.push({ uid:u.id, nome:u.nome, username:u.username, fotoBase64:u.fotoBase64||null });
+      renderizarChipsUsuarios();
+      inputUsuario.value = '';
+      esconderSugestoes();
+      inputUsuario.focus();
+    });
+  });
+}
+
+function esconderSugestoes(){
+  boxSugestoes.style.display = 'none';
+  boxSugestoes.innerHTML = '';
+}
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#campoUsuarios') && !e.target.closest('#sugestoesUsuario')) esconderSugestoes();
 });
 
 function renderizarChipsUsuarios(){

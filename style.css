@@ -14,7 +14,7 @@
   --vermelho: #E15B5B;
 }
 *{ box-sizing:border-box; }
-html{ scroll-behavior:smooth; }
+html{ scroll-behavior:smooth; overscroll-behavior-y: none; }
 body{
   margin:0;
   background:
@@ -24,6 +24,15 @@ body{
   color: var(--perola);
   font-family:'Inter',sans-serif;
   min-height:100vh;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea{
+  -webkit-user-select: text;
+  user-select: text;
 }
 h1,h2,h3,.display{ font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:-0.01em; margin:0; }
 .mono{ font-family:'JetBrains Mono',monospace; }
@@ -272,6 +281,7 @@ main{ max-width: 640px; margin:0 auto; padding: 22px 18px 110px; min-height: 70v
 .item-andamento{ display:flex; align-items:center; gap:14px; background: linear-gradient(160deg, rgba(59,29,110,0.4), rgba(29,15,53,0.6)); border:1px solid var(--linha); border-radius:14px; padding:14px 16px; }
 .item-andamento .botao-mini{ background: rgba(124,58,237,0.25); border:1px solid var(--linha); color:var(--lilas); font-size:11.5px; font-weight:700; padding:8px 13px; border-radius:10px; cursor:pointer; white-space:nowrap; }
 .item-andamento .botao-mini.finalizar{ background: var(--dourado-suave); color:var(--dourado); border-color:rgba(244,197,80,0.35); }
+.item-andamento .botao-mini:disabled{ opacity:.35; cursor:not-allowed; }
 
 /* ---------- clube do livro ---------- */
 .grade-desafios{ display:flex; flex-direction:column; gap:14px; margin-bottom:30px; }
@@ -290,6 +300,16 @@ main{ max-width: 640px; margin:0 auto; padding: 22px 18px 110px; min-height: 70v
 .campo-usuarios input:focus{ outline:none; }
 .nota-regra{ font-size:11.5px; color:var(--texto-suave); margin-top:14px; padding:11px 14px; background: rgba(244,197,80,0.08); border:1px solid rgba(244,197,80,0.25); border-radius:10px; }
 .nota-regra b{ color:var(--dourado); }
+
+.sugestoes-usuario{
+  position:absolute; left:0; right:0; top:calc(100% + 6px); z-index:45;
+  background: var(--roxo-profundo); border:1px solid var(--linha); border-radius:12px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45); overflow:hidden; max-height:240px; overflow-y:auto;
+}
+.item-sugestao{
+  display:flex; align-items:center; gap:10px; padding:10px 13px; cursor:pointer; transition:.1s;
+}
+.item-sugestao:hover{ background: rgba(124,58,237,0.22); }
 
 /* ---------- ranking ---------- */
 .podio{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:26px; align-items:end; }
