@@ -138,4 +138,4 @@ A sequência (🔥), a meta do mês e o ranking são todos calculados automatica
 - **Erro "permission-denied" ao salvar algo:** normalmente é a regra do Realtime Database (Parte 1, passo 6) que não foi publicada certinho — vale conferir e publicar de novo.
 - **Aviso sobre "index not defined" no console do navegador:** normalmente já está coberto pelas regras que você colou (`.indexOn`), mas se aparecer, é só seguir a instrução que o próprio aviso mostra.
 
-Qualquer coisa, me manda o erro que aparece (pode ser print de tela) que eu te ajudo a resolver. 
+Qualquer coisa, me manda o erro que aparece (pode ser print de tela) que eu te ajudo a resolver.

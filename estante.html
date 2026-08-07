@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12081F">
+<link rel="icon" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
 <title>Estante — Paginário</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -119,7 +124,7 @@ async function carregarLivros(){
 function abrirModal(livro){
   const veu = document.getElementById('veuModal');
   document.getElementById('conteudoModal').innerHTML = `
-    ${livro.capaBase64?`<img class="capa-modal" src="${livro.capaBase64}">`:''}
+    ${livro.capaBase64?`<img class="capa-modal" src="${livro.capaBase64}" onclick="abrirImagemAmpliada('${livro.capaBase64}')"><div class="lupa-capa">🔍</div>`:''}
     <div class="modal-corpo">
       <button class="fechar" id="fecharModal">&times;</button>
       <h2 class="display" style="font-size:20px;">${escapeHtml(livro.titulo)}</h2>

@@ -417,3 +417,18 @@ function tempoRelativo(timestampMs){
 }
 
 document.addEventListener('DOMContentLoaded', marcarAbaAtiva);
+
+function abrirImagemAmpliada(src){
+  if(!src) return;
+  const veu = document.createElement('div');
+  veu.className = 'veu-imagem';
+  veu.innerHTML = `<img src="${src}">`;
+  veu.addEventListener('click', ()=> veu.remove());
+  document.body.appendChild(veu);
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}

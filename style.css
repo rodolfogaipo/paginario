@@ -314,12 +314,31 @@ main{ max-width: 640px; margin:0 auto; padding: 22px 18px 110px; min-height: 70v
 
 /* ---------- modal livro ---------- */
 .veu{ position:fixed; inset:0; background: rgba(12,6,20,0.7); display:flex; align-items:center; justify-content:center; padding:16px; z-index:60; }
-.modal-livro{ background: var(--roxo-profundo); max-width:440px; width:100%; max-height:86vh; overflow-y:auto; border-radius:18px; border:1px solid var(--linha); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.modal-livro{ background: var(--roxo-profundo); max-width:440px; width:100%; max-height:86vh; overflow-y:auto; border-radius:18px; border:1px solid var(--linha); box-shadow: 0 20px 60px rgba(0,0,0,0.5); position:relative; }
 .modal-livro .capa-modal{ width:100%; aspect-ratio:16/9; object-fit:cover; background: var(--roxo-vibrante); }
 .modal-corpo{ padding:22px 24px 26px; }
 .modal-corpo .fechar{ float:right; background:none; border:none; cursor:pointer; font-size:20px; color:var(--texto-suave); }
 .citacao{ font-family:'Space Grotesk',sans-serif; font-size:15.5px; color:var(--dourado); border-left:3px solid var(--dourado); padding-left:14px; margin:16px 0; line-height:1.5; }
 .ficha-tecnica{ display:grid; grid-template-columns:1fr 1fr; gap:6px 18px; font-size:12px; color:var(--texto-suave); margin-top:14px; border-top:1px solid var(--linha); padding-top:12px; }
 .ficha-tecnica b{ color:var(--perola); font-weight:600; }
+
+/* ---------- visualizador de imagem ampliada ---------- */
+.capa-modal{ cursor: zoom-in; position:relative; }
+.lupa-capa{
+  position:absolute; top:12px; right:12px;
+  background: rgba(18,8,31,0.65); color:#fff;
+  width:30px; height:30px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; pointer-events:none;
+}
+.veu-imagem{
+  position:fixed; inset:0; background: rgba(8,4,14,0.94);
+  display:flex; align-items:center; justify-content:center;
+  padding: 24px; z-index: 90; cursor: zoom-out;
+}
+.veu-imagem img{
+  max-width: 100%; max-height: 100%; border-radius: 10px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.65);
+}
 
 @media (max-width:420px){ .ficha-tecnica{ grid-template-columns:1fr; } }
