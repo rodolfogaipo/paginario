@@ -170,12 +170,17 @@ async function renderizarAtividade(){
     lista.innerHTML = `<div class="vazio"><div class="display" style="font-size:14px;">Nenhuma atividade ainda</div>Registre sua primeira leitura!</div>`;
     return;
   }
-  lista.innerHTML = atividades.map(a=>`
-    <div class="item-atividade">
+  lista.innerHTML = atividades.map(a=>{
+    let destino;
+    if(a.tipo === 'entrouDesafio') destino = a.desafioId ? `desafio.html?id=${a.desafioId}` : 'clube.html';
+    else destino = a.uid === usuarioAtual.uid ? 'estante.html' : `perfil.html?uid=${a.uid}`;
+    return `
+    <a href="${destino}" class="item-atividade">
       <div class="mini-avatar">${escapeHtml((a.nomeUsuario||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>
       <div class="txt-ativ">${textoAtividade(a)}</div>
       ${a.tipo==='checkin'?`<div class="selo-pag">+${formatarNumero(a.paginas)}</div>`:''}
-    </div>`).join('');
+    </a>`;
+  }).join('');
 }
 </script>
 </body>

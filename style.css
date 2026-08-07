@@ -231,8 +231,9 @@ main{ max-width: 640px; margin:0 auto; padding: 22px 18px 110px; min-height: 70v
 .card-desafio-mini .pos-des{ text-align:right; }
 .card-desafio-mini .pos-des b{ color:var(--dourado); font-family:'Space Grotesk',sans-serif; }
 
-.item-atividade{ display:flex; gap:11px; padding:11px 2px; border-bottom:1px solid var(--linha); align-items:flex-start; }
+.item-atividade{ display:flex; gap:11px; padding:11px 8px; border-bottom:1px solid var(--linha); align-items:flex-start; text-decoration:none; color:inherit; border-radius:8px; margin:0 -8px; transition:.12s; }
 .item-atividade:last-child{ border-bottom:none; }
+.item-atividade:hover{ background: rgba(124,58,237,0.12); }
 .item-atividade .txt-ativ{ font-size:12.5px; line-height:1.5; flex:1; }
 .item-atividade .txt-ativ b{ color:var(--perola); }
 .item-atividade .txt-ativ .tempo{ display:block; color:var(--texto-suave); font-size:10.5px; margin-top:2px; }

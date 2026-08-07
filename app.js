@@ -254,7 +254,7 @@ async function adicionarCheckin(uid, nomeUsuario, livro, paginasHoje){
   atualizacoes['usuarios/'+uid+'/sequenciaAtual'] = novaSequencia;
   atualizacoes['usuarios/'+uid+'/ultimoCheckinData'] = hoje;
   atualizacoes['atividades/'+idAtividade] = {
-    uid, nomeUsuario, tipo:'checkin', tituloLivro: livro.titulo, paginas: paginasHoje,
+    uid, nomeUsuario, tipo:'checkin', tituloLivro: livro.titulo, livroId: livro.id, paginas: paginasHoje,
     criadoEm: firebase.database.ServerValue.TIMESTAMP
   };
   atualizacoes['historicoMeses/'+uid+'_'+mesAtual] = { uid, mes: mesAtual, paginas: paginasHistoricoAtual + paginasHoje };
@@ -310,7 +310,7 @@ async function finalizarLivro(livro, uid, nomeUsuario, dados){
     atualizacoes['historicoMeses/'+uid+'_'+mesAtual] = { uid, mes: mesAtual, paginas: paginasHistoricoAtual + faltantes };
   }
   atualizacoes['atividades/'+idAtividade] = {
-    uid, nomeUsuario, tipo:'finalizado', tituloLivro: livro.titulo, paginas: livro.paginasTotal,
+    uid, nomeUsuario, tipo:'finalizado', tituloLivro: livro.titulo, livroId: livro.id, paginas: livro.paginasTotal,
     criadoEm: firebase.database.ServerValue.TIMESTAMP
   };
 
@@ -384,7 +384,7 @@ async function criarDesafio(criadorUid, criadorInfo, nomeDesafio, convidados, du
     atualizacoes['desafiosPorUsuario/'+u+'/'+idDesafio] = true;
     const idAtiv = db.ref('atividades').push().key;
     atualizacoes['atividades/'+idAtiv] = {
-      uid:u, nomeUsuario: participantesInfo[u].nome, tipo:'entrouDesafio', nomeDesafio,
+      uid:u, nomeUsuario: participantesInfo[u].nome, tipo:'entrouDesafio', nomeDesafio, desafioId: idDesafio,
       criadoEm: firebase.database.ServerValue.TIMESTAMP
     };
   });
