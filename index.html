@@ -53,7 +53,10 @@
         </div>
         <div class="campo">
           <label for="senha">Senha</label>
-          <input type="password" id="senha" autocomplete="current-password" required minlength="6">
+          <div class="campo-senha">
+            <input type="password" id="senha" autocomplete="current-password" required minlength="6">
+            <button type="button" class="botao-olho" id="botaoMostrarSenha" title="Mostrar senha">👁</button>
+          </div>
         </div>
 
         <div id="blocoMeta" style="display:none" class="campo">
@@ -108,6 +111,15 @@ botaoTrocar.addEventListener('click', ()=>{
     : 'Ainda não tem conta? <span class="troca-modo-link" id="botaoTrocar2">Cadastre-se</span>';
   document.getElementById('botaoTrocar2').addEventListener('click', ()=> botaoTrocar.click());
   erroBox.style.display = 'none';
+});
+
+document.getElementById('botaoMostrarSenha').addEventListener('click', ()=>{
+  const campo = document.getElementById('senha');
+  const botao = document.getElementById('botaoMostrarSenha');
+  const mostrando = campo.type === 'text';
+  campo.type = mostrando ? 'password' : 'text';
+  botao.textContent = mostrando ? '👁' : '🙈';
+  botao.title = mostrando ? 'Mostrar senha' : 'Ocultar senha';
 });
 
 document.getElementById('pillsMeta').addEventListener('click', e=>{

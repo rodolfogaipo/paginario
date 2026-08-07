@@ -88,6 +88,14 @@ main{ max-width: 640px; margin:0 auto; padding: 22px 18px 110px; min-height: 70v
   width:100%; background: rgba(18,8,31,0.6); border:1px solid var(--linha); border-radius:10px;
   padding:12px 14px; color:var(--perola); font-family:'Inter',sans-serif; font-size:14.5px;
 }
+.campo-senha{ position:relative; }
+.campo-senha input{ padding-right:44px; }
+.botao-olho{
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer; font-size:16px;
+  width:34px; height:34px; border-radius:8px; color:var(--texto-suave);
+}
+.botao-olho:hover{ background: rgba(124,58,237,0.15); color:var(--lilas); }
 .campo textarea{ min-height:80px; resize:vertical; }
 .campo input:focus, .campo textarea:focus{ outline:none; border-color: var(--roxo-vibrante); box-shadow:0 0 0 3px rgba(124,58,237,0.25); }
 .campo-dupla{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
