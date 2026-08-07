@@ -234,7 +234,8 @@ function buscarLivrosConcluidos(uid){
     .sort((a,b)=> (b.concluidoEm||0) - (a.concluidoEm||0)));
 }
 
-/* Registra o check-in diário: soma páginas no livro, no total, no mês, na sequência e nos desafios ativos */
+/* Registra o check-in diário: soma páginas no livro, no total, no mês, na sequência e nos desafios ativos.
+   Nunca soma mais do que realmente falta no livro (mesmo que a pessoa digite um número maior). */
 async function adicionarCheckin(uid, nomeUsuario, livro, paginasHoje){
   paginasHoje = parseInt(paginasHoje,10) || 0;
   if(paginasHoje <= 0) throw new Error('Informe um número de páginas válido.');
@@ -242,13 +243,20 @@ async function adicionarCheckin(uid, nomeUsuario, livro, paginasHoje){
   const usuarioSnap = await db.ref('usuarios/'+uid).once('value');
   const usuario = usuarioSnap.val();
 
+  const paginasAntes = livro.paginasLidas || 0;
+  const limite = livro.paginasTotal || (paginasAntes + paginasHoje);
+  const novasPaginasLidas = Math.min(paginasAntes + paginasHoje, limite);
+  const paginasReais = novasPaginasLidas - paginasAntes; // o que de fato conta, nunca ultrapassa o livro
+
+  if(paginasReais <= 0){
+    throw new Error('Esse livro já está com todas as páginas registradas — toque em "Finalizar".');
+  }
+
   const hoje = hojeStr();
   let novaSequencia = usuario.sequenciaAtual || 0;
   if(usuario.ultimoCheckinData === hoje){ /* já registrou hoje, mantém */ }
   else if(usuario.ultimoCheckinData === diaAnteriorStr(hoje)) novaSequencia += 1;
   else novaSequencia = 1;
-
-  const novasPaginasLidas = Math.min((livro.paginasLidas||0) + paginasHoje, livro.paginasTotal || (livro.paginasLidas||0)+paginasHoje);
 
   const mesAtual = mesAtualStr();
   const histSnap = await db.ref('historicoMeses/'+uid+'_'+mesAtual).once('value');
@@ -258,20 +266,20 @@ async function adicionarCheckin(uid, nomeUsuario, livro, paginasHoje){
 
   const atualizacoes = {};
   atualizacoes['livros/'+livro.id+'/paginasLidas'] = novasPaginasLidas;
-  atualizacoes['usuarios/'+uid+'/totalPaginas'] = (usuario.totalPaginas||0) + paginasHoje;
-  atualizacoes['usuarios/'+uid+'/paginasMesAtual'] = (usuario.paginasMesAtual||0) + paginasHoje;
+  atualizacoes['usuarios/'+uid+'/totalPaginas'] = (usuario.totalPaginas||0) + paginasReais;
+  atualizacoes['usuarios/'+uid+'/paginasMesAtual'] = (usuario.paginasMesAtual||0) + paginasReais;
   atualizacoes['usuarios/'+uid+'/sequenciaAtual'] = novaSequencia;
   atualizacoes['usuarios/'+uid+'/ultimoCheckinData'] = hoje;
   atualizacoes['atividades/'+idAtividade] = {
-    uid, nomeUsuario, tipo:'checkin', tituloLivro: livro.titulo, livroId: livro.id, paginas: paginasHoje,
+    uid, nomeUsuario, tipo:'checkin', tituloLivro: livro.titulo, livroId: livro.id, paginas: paginasReais,
     criadoEm: firebase.database.ServerValue.TIMESTAMP
   };
-  atualizacoes['historicoMeses/'+uid+'_'+mesAtual] = { uid, mes: mesAtual, paginas: paginasHistoricoAtual + paginasHoje };
+  atualizacoes['historicoMeses/'+uid+'_'+mesAtual] = { uid, mes: mesAtual, paginas: paginasHistoricoAtual + paginasReais };
 
   await db.ref().update(atualizacoes);
-  await atualizarProgressoDesafiosAtivos(uid, paginasHoje);
+  await atualizarProgressoDesafiosAtivos(uid, paginasReais);
 
-  return { novasPaginasLidas, novaSequencia };
+  return { novasPaginasLidas, novaSequencia, paginasReais };
 }
 
 async function atualizarProgressoDesafiosAtivos(uid, paginas){

@@ -141,7 +141,10 @@ function renderizarCheckin(){
     try{
       const paginas = parseInt(inputPag.value,10)||0;
       const resultado = await adicionarCheckin(usuarioAtual.uid, perfilAtual.nome, livro, paginas);
-      okBox.textContent = `Boa! +${paginas} páginas registradas. Sequência: ${resultado.novaSequencia} dias 🔥`;
+      const aviso = resultado.paginasReais < paginas
+        ? ` (contamos só ${formatarNumero(resultado.paginasReais)}, que era o que faltava)`
+        : '';
+      okBox.textContent = `Boa! +${formatarNumero(resultado.paginasReais)} páginas registradas${aviso}. Sequência: ${resultado.novaSequencia} dias 🔥`;
       okBox.style.display = 'block';
       await carregarAndamento();
     } catch(err){
