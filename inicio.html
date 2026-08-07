@@ -170,13 +170,18 @@ async function renderizarAtividade(){
     lista.innerHTML = `<div class="vazio"><div class="display" style="font-size:14px;">Nenhuma atividade ainda</div>Registre sua primeira leitura!</div>`;
     return;
   }
+  const perfis = await buscarPerfisPorUids(atividades.map(a=>a.uid));
   lista.innerHTML = atividades.map(a=>{
+    const perfil = perfis[a.uid];
     let destino;
     if(a.tipo === 'entrouDesafio') destino = a.desafioId ? `desafio.html?id=${a.desafioId}` : 'clube.html';
     else destino = a.uid === usuarioAtual.uid ? 'estante.html' : `perfil.html?uid=${a.uid}`;
+    const avatar = perfil?.fotoBase64
+      ? `<div class="mini-avatar"><img src="${perfil.fotoBase64}"></div>`
+      : `<div class="mini-avatar">${escapeHtml((a.nomeUsuario||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>`;
     return `
     <a href="${destino}" class="item-atividade">
-      <div class="mini-avatar">${escapeHtml((a.nomeUsuario||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase())}</div>
+      ${avatar}
       <div class="txt-ativ">${textoAtividade(a)}</div>
       ${a.tipo==='checkin'?`<div class="selo-pag">+${formatarNumero(a.paginas)}</div>`:''}
     </a>`;

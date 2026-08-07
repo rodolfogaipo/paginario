@@ -98,11 +98,15 @@ async function carregarDesafios(){
     lista.innerHTML = `<div class="vazio"><div class="display" style="font-size:15px;">Nenhum desafio ainda</div>Crie um abaixo e convide alguém pelo @usuário.</div>`;
     return;
   }
+
+  const todosUids = [...new Set(desafios.flatMap(d => d.participantes || []))];
+  const perfis = await buscarPerfisPorUids(todosUids);
+
   lista.innerHTML = desafios.map(d=>{
     const ranking = Object.entries(d.progresso||{}).sort((a,b)=>b[1]-a[1]);
     const dias = diasRestantes(d.dataFim);
     const liderUid = ranking[0]?.[0];
-    const liderNome = d.participantesInfo?.[liderUid]?.nome || '—';
+    const liderNome = perfis[liderUid]?.nome || d.participantesInfo?.[liderUid]?.nome || '—';
     return `
     <a href="desafio.html?id=${d.id}" class="card-desafio">
       <div class="card-desafio-topo">
@@ -111,8 +115,9 @@ async function carregarDesafios(){
       </div>
       <div class="avatares-empilhados">
         ${d.participantes.map(uid=>{
-          const info = d.participantesInfo?.[uid];
-          return info?.fotoBase64 ? `<div class="mini-avatar"><img src="${info.fotoBase64}"></div>` : `<div class="mini-avatar">${iniciais(info?.nome)}</div>`;
+          const perfil = perfis[uid];
+          const nome = perfil?.nome || d.participantesInfo?.[uid]?.nome;
+          return perfil?.fotoBase64 ? `<div class="mini-avatar"><img src="${perfil.fotoBase64}"></div>` : `<div class="mini-avatar">${iniciais(nome)}</div>`;
         }).join('')}
       </div>
       <div class="lider-desafio">Na frente: <b>${escapeHtml(liderNome)}</b> · ${formatarNumero(ranking[0]?.[1]||0)} pág.</div>

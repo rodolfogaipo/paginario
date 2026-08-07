@@ -133,6 +133,15 @@ function buscarPerfilUsuario(uid){
   return db.ref('usuarios/'+uid).once('value').then(s=> s.exists() ? {id:uid, ...s.val()} : null);
 }
 
+/* Busca vários perfis de uma vez (sem repetir buscas do mesmo uid) — útil pra avatares em listas */
+async function buscarPerfisPorUids(uids){
+  const unicos = [...new Set((uids||[]).filter(Boolean))];
+  const perfis = await Promise.all(unicos.map(uid => buscarPerfilUsuario(uid)));
+  const mapa = {};
+  unicos.forEach((uid,i) => mapa[uid] = perfis[i]);
+  return mapa;
+}
+
 async function buscarUsuarioPorUsername(username){
   const lower = username.toLowerCase().replace(/^@/,'').trim();
   const snap = await db.ref('usernames/'+lower).once('value');
@@ -284,6 +293,21 @@ async function atualizarProgressoDesafiosAtivos(uid, paginas){
   if(Object.keys(atualizacoes).length) await db.ref().update(atualizacoes);
 }
 
+/* Ajusta (soma ou subtrai) páginas em todos os desafios que a pessoa participa —
+   usado ao excluir um livro, pra tirar de lá as páginas que não existem mais */
+async function ajustarProgressoDesafios(uid, delta){
+  const idsSnap = await db.ref('desafiosPorUsuario/'+uid).once('value');
+  if(!idsSnap.exists()) return;
+  const ids = Object.keys(idsSnap.val());
+  const atualizacoes = {};
+  for(const id of ids){
+    const progSnap = await db.ref('desafios/'+id+'/progresso/'+uid).once('value');
+    const atual = progSnap.val() || 0;
+    atualizacoes['desafios/'+id+'/progresso/'+uid] = Math.max(0, atual + delta);
+  }
+  if(Object.keys(atualizacoes).length) await db.ref().update(atualizacoes);
+}
+
 /* Finaliza um livro: completa a ficha e fecha o total de páginas restante, se houver */
 async function finalizarLivro(livro, uid, nomeUsuario, dados){
   const faltantes = Math.max(0, (livro.paginasTotal||0) - (livro.paginasLidas||0));
@@ -342,6 +366,7 @@ async function removerLivro(livro, uid){
   }
   atualizacoes['livros/'+livro.id] = null;
   await db.ref().update(atualizacoes);
+  if(paginas > 0) await ajustarProgressoDesafios(uid, -paginas);
 }
 
 /* ---------- clube do livro (desafios) ---------- */
